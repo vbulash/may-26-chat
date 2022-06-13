@@ -27,7 +27,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
 
@@ -221,7 +220,13 @@ public class ChatController implements Initializable {
                 btnSend.setDisable(false);
                 message = "";
             }
-            // case "REMOVE:"
+            case "REMOVE:" -> {
+                to = String.format("пользователь @%s вышел из сети", data[0]);
+                names.remove(message);
+                contacts.setItems(FXCollections.observableList(names));
+                btnSend.setDisable(names.size() == 0);
+                message = "";
+            }
             default -> to = " : ";
         }
 

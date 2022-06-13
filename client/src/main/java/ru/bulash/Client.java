@@ -7,19 +7,17 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.HashMap;
-import java.util.Scanner;
 
 import static ru.bulash.Constants.*;
 
 public class Client {
-	private ChatController chatController;
+	private final ChatController chatController;
 	public Action action = null;
 	private Socket clientSocket;
 	private final Thread receiveThread;
 	private User user;
 	private PrintWriter out;
 	private BufferedReader in;
-	private final Scanner sc = new Scanner(System.in);
 	private final HashMap<String, User> userList = new HashMap<>();
 
 	public Client(ChatController chatController) {
@@ -50,7 +48,7 @@ public class Client {
 	}
 
 	public void connect(User user) throws IOException {
-		clientSocket = new Socket(Constants.CHAT_HOST, Constants.CHAT_PORT);
+		clientSocket = new Socket(CHAT_HOST, CHAT_PORT);
 		this.out = new PrintWriter(clientSocket.getOutputStream());
 		this.in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 		this.user = user;
@@ -66,7 +64,6 @@ public class Client {
 		String command = action.getCommand();
 		String[] data = action.getData();
 		String statusMessage = "";
-		int status = 200;
 		boolean invisible = false;	// Невизуальное сообщение
 
 		try {
@@ -108,7 +105,7 @@ public class Client {
 			clientSocket.close();
 			receiveThread.interrupt();
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				//
 			}

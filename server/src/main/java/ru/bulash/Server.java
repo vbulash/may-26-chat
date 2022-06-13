@@ -7,6 +7,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class Server implements Runnable {
 	private static ServerSocket serverSocket;
@@ -29,6 +31,22 @@ public class Server implements Runnable {
 				}
 			}
 		});
+
+		// Проконтролировать, жив клиент или нет
+		var alive = new Timer(true);
+		alive.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				for (String usernick : clientList.keySet()) {
+					ClientProcess client = clientList.get(usernick);
+					if (client.isClosed()) {
+						clientList.remove(usernick);
+						System.out.printf("Процесс пользователя @%s прерван\n", usernick);
+						return;
+					}
+				}
+			}
+		}, 0, 2000);
 	}
 
 	public static void main(String[] args) {

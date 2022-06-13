@@ -92,11 +92,17 @@ public class ClientProcess extends Thread {
 					userNick = user.getNickname();
 					statusMessage = String.format("Пользователь @%s вышел из сети", userNick);
 
-					// Закрыть процесс клиента на сервере
 					for (ClientProcess client : Server.clientList.values()) {
-						client.out.printf("REMOVE:|%s\n", user.getNickname());
-						client.out.flush();
+						if (!client.user.getNickname().equals(userNick)) {
+							client.out.printf("REMOVE:|%s\n", user.getNickname());
+							client.out.flush();
+						}
 					}
+					User closed = Server.userList.get(userNick);
+					closed.setActive(false);
+//					ClientProcess client = Server.clientList.get(userNick);
+//					client.closeClient();
+//					Server.clientList.remove(userNick);
 				}
 				case "USER:" -> {    // Сообщение от текущего клиента другому клиенту
 					userNick = data[0];
@@ -143,7 +149,7 @@ public class ClientProcess extends Thread {
 		}
 	}
 
-	private boolean processIsAlive() {
+	public boolean processIsAlive() {
 		return !Thread.currentThread().isInterrupted() && !clientSocket.isClosed();
 	}
 
@@ -211,5 +217,9 @@ public class ClientProcess extends Thread {
 	public String getNickname() {
 		if (user == null) return null;
 		return user.getNickname();
+	}
+
+	public boolean isClosed() {
+		return this.clientSocket.isClosed();
 	}
 }
