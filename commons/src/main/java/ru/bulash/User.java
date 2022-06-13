@@ -7,6 +7,7 @@ import java.util.HashMap;
 public class User {
 	private String nickname;
 	private String password;
+	private boolean active = false;
 
 	public String getNickname() {
 		return nickname;
@@ -27,5 +28,13 @@ public class User {
 			return false;
 		}
 		return this.nickname.equals(another.nickname) && this.password.equals(another.password);
+	}
+
+	public boolean isActive() {
+		return active;
+	}
+
+	public void setActive(boolean active) {
+		this.active = active;
 	}
 }

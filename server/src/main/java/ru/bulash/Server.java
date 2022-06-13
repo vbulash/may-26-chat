@@ -34,6 +34,9 @@ public class Server implements Runnable {
 	public static void main(String[] args) {
 		Thread server = new Thread(new Server());
 		server.start();
+		Server.userList.put("vbulash", new User("vbulash", "1"));
+		Server.userList.put("nbulash", new User("nbulash", "1"));
+		Server.userList.put("abulash", new User("abulash", "1"));
 	}
 
 	private boolean processIsAlive() {
@@ -44,6 +47,7 @@ public class Server implements Runnable {
 		User user = userList.get(nickname);
 		if (user == null) return null;
 		if (user.getPassword().equals(password)) {
+			user.setActive(true);
 			return user;
 		} else {
 			return null;
@@ -79,32 +83,27 @@ public class Server implements Runnable {
 	}
 
 	private void composeMessage(String message) {
-		Scanner messageScanner = new Scanner(message);
-		String prefix = messageScanner.next();
-		StringBuilder userMessage = new StringBuilder();
+		Action action = new Action(message);
+		String command = action.getCommand();
+		String[] data = action.getData();
 		boolean internal = false;
 
 		try {
-			if (Constants.PREFIX_HELP.equals(prefix)) {	//
+			if (Constants.PREFIX_HELP.equals(command)) {	//
 				internal = true;
 			}
-			switch (prefix) {
+			switch (command) {
 				case "ALL:" -> {    // Сообщение с сервера всем клиентам
-					while (messageScanner.hasNext())
-						userMessage.append(messageScanner.next()).append(" ");
 					for (ClientProcess client : clientList.values()) {
-						client.out.printf("ALL: %s\n", userMessage);
+						client.out.printf("ALL:|%s\n", data[0]);
 						client.out.flush();
 					}
 				}
 				case "SERVER:" -> {	// Сообщение с сервера конкретному клиенту
-					String userNick = messageScanner.next();
+					String userNick = data[0];
 					ClientProcess client = clientList.get(userNick);
 					if (client != null) {
-						while (messageScanner.hasNext())
-							userMessage.append(messageScanner.next()).append(" ");
-
-						client.out.printf("SERVER: %s\n", userMessage);
+						client.out.printf("SERVER:|%s\n", data[1]);
 						client.out.flush();
 					}
 				}

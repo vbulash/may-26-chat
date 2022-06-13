@@ -78,71 +78,53 @@ public class ClientProcess extends Thread {
 	private boolean parseInput(String message) {
 		if (message == null) return true;
 
-		Scanner messageScanner = new Scanner(message);
-		String prefix = messageScanner.next();
+		Action action = new Action(message);
+		String command = action.getCommand();
+		String[] data = action.getData();
+
 		String userNick;
-		StringBuilder statusMessage = new StringBuilder();
-		StringBuilder userMessage = new StringBuilder();
+		String statusMessage;
 		int status = 200;
 
 		try {
-			switch (prefix) {
+			switch (command) {
 				case "CLOSE:" -> {    // Клиент послал сообщение о своем закрытии
 					userNick = user.getNickname();
-					statusMessage.append(String.format("пользователь @%s вышел из сети", userNick));
+					statusMessage = String.format("Пользователь @%s вышел из сети", userNick);
 
 					// Закрыть процесс клиента на сервере
 					for (ClientProcess client : Server.clientList.values()) {
-						client.out.printf("REMOVE: %s\n", user.getNickname());
+						client.out.printf("REMOVE:|%s\n", user.getNickname());
 						client.out.flush();
 					}
 				}
 				case "USER:" -> {    // Сообщение от текущего клиента другому клиенту
-					userNick = messageScanner.next();
-					statusMessage.append(String.format("сообщение для пользователя @%s", userNick));
-					while (messageScanner.hasNext())
-						userMessage.append(messageScanner.next()).append(" ");
+					userNick = data[0];
+					statusMessage = String.format("Сообщение для пользователя @%s", userNick);
 
 					ClientProcess client = Server.clientList.get(userNick);
 					if (client != null) {
-						client.out.printf("USER: %s %s\n", user.getNickname(), userMessage);
+						client.out.printf("USER:|%s|%s\n", user.getNickname(), data[1]);
 						client.out.flush();
 					}
 				}
 				case "USERALL:" -> {    // Сообщение от текущего клиента всем остальным клиентам
-					statusMessage.append("сообщение от текущего пользователя всем пользователям");
-					while (messageScanner.hasNext())
-						userMessage.append(messageScanner.next()).append(" ");
+					userNick = user.getNickname();
+					statusMessage = "Сообщение от текущего пользователя всем пользователям";
 
 					for (ClientProcess client : Server.clientList.values()) {
-						if (client != null && !client.equals(this)) {
-							client.out.printf("USERALL: %s %s\n", user.getNickname(), userMessage);
+						if (client != null && !client.user.getNickname().equals(this.user.getNickname())) {
+							client.out.printf("USERALL:|%s|%s\n", userNick, data[0]);
 							client.out.flush();
 						}
-					}
-				}
-				case "REG:" -> {    // Ответ на регистрацию
-					status = messageScanner.nextInt();
-					if (status == 200) {
-						statusMessage.append("успешная регистрация на сервере");
-					} else {
-						statusMessage.append("ошибка регистрации клиента на сервере (");
-						while (messageScanner.hasNext())
-							statusMessage.append(messageScanner.next()).append(" ");
 					}
 				}
 				default -> throw new IllegalArgumentException("Неизвестный префикс входящего сообщения");
 			}
 
-			System.out.printf("\n(Клиент \"%s\") - %s > %s\n", user.getNickname(), statusMessage, userMessage);
-			if (status != 200) {
-				throw new IllegalAccessException(userMessage.toString());
-			}
+			System.out.printf("\n(Клиент \"%s\") - %s\n", user.getNickname(), statusMessage);
 
 			return true;
-		} catch (IllegalAccessException exc) {
-			closeClient();
-			return false;
 		} catch (Exception exc) {
 			// TODO - послать сообщение серверу об ошибке в исходном сообщении
 			System.out.printf("(Клиент \"%s\") - ошибка разбора входящего сообщения (\"%s\")", user.getNickname(), message);
@@ -169,47 +151,35 @@ public class ClientProcess extends Thread {
 		try {
 			// Получить от клиента запрос регистрации
 			String message = in.readLine();
-			Scanner messageScanner = new Scanner(message);
-			String prefix = messageScanner.next();
-			if (!"REG:".equals(prefix)) {
-				throw new IOException(String.format("Ожидался запрос регистрации клиента (REG:), получено = \"%s\"", message));
-			}
-			// Следующий элемент - псевдоним
-			String nickname = messageScanner.next();
-			if (nickname == null) {
-				throw new IOException(String.format("Ожидался псевдоним пользователя, получено = \"%s\"", message));
-			}
-			// Следующий элемент - пароль
-			String password = messageScanner.next();
-			if (password == null) {
-				throw new IOException(String.format("Ожидался пароль пароля, получено = \"%s\"", message));
-			}
-			// Проверить на повторную регистрацию
-			User current = Server.login(nickname, password);    // Повторная регистрация
-			if (current == null) {
-				current = Server.register(nickname, password);
+			Action action = new Action(message);
+			String prefix = action.getCommand();
+			String[] data = action.getData();
+			String nickname = data[0];
+			String password = data[1];
+
+			User current = Server.login(nickname, password);
+			if (current != null) {
 				this.user = current;
-				assert user != null;
 				sendThread.setName("client-" + user.getNickname() + "-send");
 				receiveThread.setName("client-" + user.getNickname() + "-receive");
 				Server.clientList.put(nickname, this);
-			}
-			// Отдать всем клиентам полный список пользователей
-			for (ClientProcess client : Server.clientList.values()) {
-				for (String nickName : Server.userList.keySet()) {
-					client.out.printf("LIST: %s\n", nickName);
-					client.out.flush();
+
+				// Отдать всем клиентам полный список пользователей
+				for (ClientProcess client : Server.clientList.values()) {
+					for (User _current : Server.userList.values()) {
+						if (_current.isActive() && !_current.getNickname().equals(client.user.getNickname())) {
+							client.out.printf("LIST:|%s\n", _current.getNickname());
+							client.out.flush();
+						}
+					}
 				}
 			}
-			// Завершить выдачу текущих пользователей
-			out.println("REG: 200");
-			out.flush();
 
 			System.out.printf("\nСервер - пользователь @%s вошел в сеть\n", nickname);
 
 			return true;
 		} catch (IOException exc) {
-			out.println("REG: 500");
+			out.println("REG:|500");
 			out.flush();
 			exc.printStackTrace();
 			return false;
@@ -217,9 +187,9 @@ public class ClientProcess extends Thread {
 	}
 
 	private void composeMessage(String message) {
-		Scanner messageScanner = new Scanner(message);
-		String prefix = messageScanner.next();
-		StringBuilder userMessage = new StringBuilder();
+		Action action = new Action(message);
+		String prefix = action.getCommand();
+		String[] data = action.getData();
 		boolean internal = false;
 
 		try {
